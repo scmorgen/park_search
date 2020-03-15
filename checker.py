@@ -80,17 +80,17 @@ ALL_SITES_DICT = {
     "Sunset SB": {"url": CALIFORNIA_URL, "tags": ["weekend", "beach", "santa_cruz", "hwy1"]},
     "Half Moon Bay SB": {"url": CALIFORNIA_URL, "tags": ["weekend", "beach", "hwy1"]},
     "Russian Gulch": {"url": CALIFORNIA_URL, "tags": ["beach", "hwy1", "north_hwy1", "rg"]},
-    "Van Damme": {"url": CALIFORNIA_URL, "tags": ["weekend", "northern_cal", "hwy1", "north_hwy1"]},
-    "Prairie Creek Redwoods SP Elk": {"url": CALIFORNIA_URL, "tags": ["weekend", "northern_cal", "hwy1", "north_hwy1"]},
-    "Prairie Creek Redwoods SP Gold": {"url": CALIFORNIA_URL, "tags": ["weekend", "northern_cal", "hwy1", "north_hwy1"]},
+    "Van Damme": {"url": CALIFORNIA_URL, "tags": ["northern_cal", "hwy1", "north_hwy1"]},
+    "Prairie Creek Redwoods SP Elk": {"url": CALIFORNIA_URL, "tags": ["northern_cal", "hwy1", "north_hwy1"]},
+    "Prairie Creek Redwoods SP Gold": {"url": CALIFORNIA_URL, "tags": ["northern_cal", "hwy1", "north_hwy1"]},
     "Patricks Point SP": {"url": CALIFORNIA_URL, "tags": ["northern_cal", "hwy1", "north_hwy1"]},
     "Mackerricher SP": {"url": CALIFORNIA_URL, "tags": ["northern_cal", "hwy1", "north_hwy1"]},
     "Grizzly Creek Redwoods SP": {"url": CALIFORNIA_URL, "tags": ["northern_cal"]},
     "Humboldt Redwoods SP": {"url": CALIFORNIA_URL, "tags": ["northern_cal"]},
 }
 
-NUM_PARALLEL_JOB = 5  # I dont recommend above 5 if using reservecalifornia
-SLEEP_BETWEEN_JOBS = 20  # I dont recommend below 20
+NUM_PARALLEL_JOB = 1  # I dont recommend above 5 if using reservecalifornia
+SLEEP_BETWEEN_JOBS = 25  # I dont recommend below 20
 CAMPSITE_URL = "https://www.recreation.gov/camping/campsites/"
 OUTPUT_FILE = "availability_{}_{}_to_{}.txt"
 
@@ -235,8 +235,8 @@ def check_date_range(start_date="8-20", end_date="9-1",
 
 
 def check_saturdays_in_range(start_date="8-20", end_date="9-1",
-                             tag="yosemite", output_file=None):
-    check_date_range(start_date, end_date, tag, output_file, weekday="saturday")
+                             tag="yosemite", park=None, output_file=None):
+    check_date_range(start_date, end_date, tag, park, output_file, weekday="saturday")
 
 
 def check_sites(dates_list, sites_dict):
@@ -291,26 +291,31 @@ def check_sites(dates_list, sites_dict):
 
 
 def _subprocess_check_site(name, url, dates_list, send_end):
+    driver = None
     try:
         driver = webdriver.Chrome(CHROME_DRIVER_LOCATION)
         date_availability = {date: [] for date in dates_list}
-        a_dict = {}
         if "recreation" in url:
             driver.get(url)
-            a_dict = _check_gov_sites(
+            date_availability = _check_gov_sites(
                 driver, name, dates_list, date_availability)
 
         else:
-
             for date in dates_list:
                 driver.get(url)
-                a_dict = _check_california_sites(
+                date_availability = _check_california_sites(
                     driver, name, date, date_availability)
 
+    except Exception:
+        pass
     finally:
-        driver.close()
-        driver.quit()
-        send_end.put(json.dumps(a_dict))
+        send_end.put(json.dumps(date_availability))
+        try:
+            if driver:
+                driver.close()
+                driver.quit()
+        except Exception:
+            pass
 
 
 def _check_california_sites(driver, name, date, available_sites):
